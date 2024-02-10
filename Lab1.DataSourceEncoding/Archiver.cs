@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Lab1.DataSourceEncoding;
 
 public class Archiver {
@@ -20,11 +22,11 @@ public class Archiver {
             var buffer = new byte[BlockSize];
             int bytesRead;
 
-            outputStream.Write(BitConverter.GetBytes("32A"));
+            outputStream.Write(Encoding.ASCII.GetBytes("32A"));
 
             while ((bytesRead = inputStream.Read(buffer, 0, BlockSize)) > 0) {
                 if (iterator == 0 || bytesRead < BlockSize) {
-                    WriteTailBytes(outputStream, buffer);
+                    WriteTailBytes(outputStream, buffer, bytesRead);
                     continue;
                 }
 
@@ -36,15 +38,19 @@ public class Archiver {
                 outputStream.Write(outputBytes);
             }
 
-            outputStream.Write(BitConverter.GetBytes(dictionary.Count), 4, 2);
+            if (outputStream.CanSeek) {
+                outputStream.Seek(3, SeekOrigin.Begin);
+            }
+
+            outputStream.Write(BitConverter.GetBytes(dictionary.Count));
         } catch {
             throw;
         }
     }
 
-    private void WriteTailBytes(FileStream stream, byte[] bytes) {
+    private void WriteTailBytes(FileStream stream, byte[] bytes, int bytesRead) {
         WriteControlBytes(stream);
-        stream.Write(bytes);
+        stream.Write(bytes, 0, bytesRead);
     }
 
     private void WriteControlBytes(FileStream stream) {
@@ -53,7 +59,7 @@ public class Archiver {
         }
 
         var controlBytes = BitConverter.GetBytes(ControlBytes);
-        stream.Write(controlBytes, 0, controlBytes.Length);
+        stream.Write(controlBytes);
     }
 
     public void Unarchive(string inputFilePath, string outputFilePath) {

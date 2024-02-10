@@ -3,15 +3,15 @@ using Lab1.DataSourceEncoding.Utils;
 namespace Lab1.DataSourceEncoding;
 
 public partial class Program {
-    private const string DefaultInputFilePath = "./InputData/file.webp";
+    private const string DefaultInputFilePath = "./InputData/test.txt";
     private const string DefaultOutputFilePath = "./OutputData/file.32a";
 
     private static readonly CommandDefinition[] CommandDefinitions = {
-        new CommandDefinition("1") {
+        new("1") {
             Description = "Run",
             Action = Run
         },
-        new CommandDefinition("0", "exit") {
+        new("0", "exit") {
             Description = "Exit from program",
             Action = null
         }
@@ -29,19 +29,15 @@ public partial class Program {
         inputFilePath = string.IsNullOrWhiteSpace(inputFilePath) ? DefaultInputFilePath : inputFilePath;
         outputFilePath = string.IsNullOrWhiteSpace(outputFilePath) ? DefaultOutputFilePath : outputFilePath;
 
-        Archiver.ArchiveFile(inputFilePath, outputFilePath);
+        var archiver = new Archiver();
+        archiver.Archive(inputFilePath, outputFilePath);
 
         Console.WriteLine("Archiving completed.");
     }
 
-    private sealed class CommandDefinition {
-        public string[] Codes { get; }
-        public string Description { get; set; }
+    private sealed class CommandDefinition(params string[] codes) {
+        public string[] Codes { get; } = codes;
+        public string Description { get; set; } = string.Empty;
         public Action? Action { get; set; }
-
-        public CommandDefinition(params string[] codes) {
-            Codes = codes;
-            Description = string.Empty;
-        }
     }
 }

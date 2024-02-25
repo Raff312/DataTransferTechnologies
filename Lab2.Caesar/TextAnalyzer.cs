@@ -39,7 +39,7 @@ public static class TextAnalyzers {
         for (var i = 0; i < dictCount; i++) {
             var charFromDict1 = dict1.ElementAt(i).Key;
             var charFromDict2 = dict2.ElementAt(i).Key;
-            alphabet.Add(charFromDict2, charFromDict1);
+            alphabet.Add(char.ToLowerInvariant(charFromDict1), char.ToLowerInvariant(charFromDict2));
         }
 
         return alphabet;

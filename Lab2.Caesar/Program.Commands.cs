@@ -3,11 +3,14 @@ using Lab2.Caesar.Utils;
 namespace Lab2.Caesar;
 
 public partial class Program {
-
     private static readonly CommandDefinition[] CommandDefinitions = {
         new("1") {
             Description = "Run",
             Action = Run
+        },
+        new("2") {
+            Description = "Run from file",
+            Action = RunFromFile
         },
         new("0", "exit") {
             Description = "Exit from program",
@@ -21,12 +24,19 @@ public partial class Program {
     }
 
     private static void Run() {
+        RunInternal(ConsoleUtils.GetValueFromUser<string>("Enter text: ")!);
+    }
+
+    private static void RunFromFile() {
+        RunInternal(File.ReadAllText("./Data/text2.txt"));
+    }
+
+    private static void RunInternal(string text) {
         var learningTextCounts = Learn();
 
-        var text = ConsoleUtils.GetValueFromUser<string>("Enter text: ");
         var key = ConsoleUtils.GetValueFromUser<int>("Enter key: ");
 
-        var encodedText = Encoder.Encode(text!, key);
+        var encodedText = Encoder.Encode(text, key);
         Console.WriteLine($"Encoded text: {encodedText}");
         var encodedTextCounts = TextAnalyzers.CountSymbols(encodedText);
 
@@ -47,6 +57,8 @@ public partial class Program {
         Console.WriteLine("=================");
 
         var decodeAlphabet = TextAnalyzers.GetDecodeAlphabet(encodedTextCounts, learningTextCounts);
+        var decodedBySubstitutingText = Decoder.Decode(encodedText, decodeAlphabet);
+        Console.WriteLine($"Decoded by substituting: {decodedBySubstitutingText}");
 
         Console.WriteLine("=================");
 

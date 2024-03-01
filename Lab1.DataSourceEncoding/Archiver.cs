@@ -1,19 +1,20 @@
 using System.Text;
 
+using Lab1.DataSourceEncoding.Utils;
+
 namespace Lab1.DataSourceEncoding;
 
 public class Archiver {
     private const ushort BlockSize = 3;
-    private const uint ControlBytes = 0xFFFF;
+    private const ushort ControlBytes = 0xFFFF;
 
-    private bool ControlBytesAdded;
-    private bool ControlBytesRead;
+    private bool IsControlBytesAdded;
 
     public void Archive(string inputFilePath, string outputFilePath) {
-        ControlBytesAdded = false;
+        IsControlBytesAdded = false;
 
-        var dictionary = new Dictionary<byte[], ushort>();
-        ushort iterator = 1;
+        var dictionary = new Dictionary<string, ushort>();
+        ushort iterator = 0;
 
         try {
             using var inputStream = new FileStream(inputFilePath, FileMode.Open, FileAccess.Read);
@@ -22,78 +23,113 @@ public class Archiver {
             var buffer = new byte[BlockSize];
             int bytesRead;
 
-            outputStream.Write(Encoding.ASCII.GetBytes("32A"));
+            var fileBytes = new List<byte>();
+            fileBytes.AddRange(Encoding.ASCII.GetBytes("32A"));
+
+            var outputFlow = new List<byte>();
 
             while ((bytesRead = inputStream.Read(buffer, 0, BlockSize)) > 0) {
-                if (iterator == 0 || bytesRead < BlockSize) {
-                    WriteTailBytes(outputStream, buffer, bytesRead);
+                if (dictionary.Count >= 65535 || bytesRead < BlockSize) {
+                    WriteTailBytes(outputFlow, buffer);
                     continue;
                 }
 
-                if (!dictionary.TryGetValue(buffer, out var blockValue)) {
-                    dictionary.Add(buffer, iterator++);
+                var bufferStr = BitConverter.ToString(buffer);
+                if (!dictionary.TryGetValue(bufferStr, out var blockValue)) {
+                    dictionary.Add(bufferStr, iterator++);
+                    fileBytes.AddRange(buffer);
                 }
 
-                var outputBytes = BitConverter.GetBytes(dictionary[buffer]);
-                outputStream.Write(outputBytes);
+                outputFlow.AddRange(BitConverter.GetBytes(dictionary[bufferStr]));
             }
 
-            if (outputStream.CanSeek) {
-                outputStream.Seek(3, SeekOrigin.Begin);
-            }
+            fileBytes.InsertRange(3, BitConverter.GetBytes((ushort)dictionary.Count));
+            fileBytes.InsertRange(5 + BlockSize * dictionary.Count, outputFlow);
 
-            outputStream.Write(BitConverter.GetBytes(dictionary.Count));
+            outputStream.Write(fileBytes.ToArray());
         } catch {
             throw;
         }
     }
 
-    private void WriteTailBytes(FileStream stream, byte[] bytes, int bytesRead) {
-        WriteControlBytes(stream);
-        stream.Write(bytes, 0, bytesRead);
+    private void WriteTailBytes(List<byte> fileBytes, byte[] bytes) {
+        WriteControlBytes(fileBytes);
+        fileBytes.AddRange(bytes);
     }
 
-    private void WriteControlBytes(FileStream stream) {
-        if (ControlBytesAdded) {
+    private void WriteControlBytes(List<byte> fileBytes) {
+        if (IsControlBytesAdded) {
             return;
         }
 
         var controlBytes = BitConverter.GetBytes(ControlBytes);
-        stream.Write(controlBytes);
+        fileBytes.AddRange(controlBytes);
     }
 
     public void Unarchive(string inputFilePath, string outputFilePath) {
-        ControlBytesRead = false;
-
         try {
             using var inputStream = new FileStream(inputFilePath, FileMode.Open, FileAccess.Read);
             using var outputStream = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write);
 
-            var buffer = new byte[BlockSize];
+            CheckFormat(inputStream);
+            var dictionary = GenerateDictionary(inputStream);
+
+            var buffer = new byte[2];
             int bytesRead;
 
+            var iterator = 0;
+
+            while ((bytesRead = inputStream.Read(buffer, 0, 2)) > 0) {
+                var byteValue = BitConverter.ToUInt16(buffer);
+                if (byteValue == ControlBytes) {
+                    break;
+                }
+
+                iterator++;
+
+                outputStream.Write(ByteUtils.HexStringToByteArray(dictionary[byteValue]));
+            }
+
+            buffer = new byte[BlockSize];
             while ((bytesRead = inputStream.Read(buffer, 0, BlockSize)) > 0) {
-                // TODO: Add logic
+                outputStream.Write(buffer);
             }
         } catch {
             throw;
         }
     }
 
-    private ushort GetBytesLengthByState(ReadState state, ushort dictionaryLength) {
-        return state switch {
-            ReadState.Format => 3,
-            ReadState.DictionaryLength => 2,
-            ReadState.Dictionary => dictionaryLength,
-            ReadState.Stream => 2,
-            _ => throw new NotSupportedException($"{state} is unsupported")
-        };
+    private static void CheckFormat(FileStream stream) {
+        var formatBuffer = new byte[BlockSize];
+
+        stream.Read(formatBuffer, 0, BlockSize);
+        var format = Encoding.ASCII.GetString(formatBuffer);
+        if (format != "32A") {
+            throw new FormatException("Incorrect file format");
+        }
     }
 
-    private enum ReadState {
-        Format = 0,
-        DictionaryLength = 1,
-        Dictionary = 2,
-        Stream = 3
+    private static Dictionary<ushort, string> GenerateDictionary(FileStream stream) {
+        var result = new Dictionary<ushort, string>();
+
+        var dictionaryLength = GetDictionaryLength(stream);
+        var buffer = new byte[BlockSize];
+        ushort iterator = 0;
+
+        for (var i = 0; i < dictionaryLength; i++) {
+            stream.Read(buffer, 0, BlockSize);
+
+            var bufferStr = BitConverter.ToString(buffer);
+            result.Add(iterator++, bufferStr);
+        }
+
+        return result;
+    }
+
+    private static ushort GetDictionaryLength(FileStream stream) {
+        var lengthBuffer = new byte[2];
+
+        stream.Read(lengthBuffer, 0, 2);
+        return BitConverter.ToUInt16(lengthBuffer);
     }
 }

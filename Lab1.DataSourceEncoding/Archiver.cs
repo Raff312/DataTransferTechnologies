@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Text;
 
 using Lab1.DataSourceEncoding.Utils;
@@ -8,17 +9,13 @@ public class Archiver {
     private const ushort BlockSize = 3;
     private const ushort ControlBytes = 0xFFFF;
 
-    private bool IsControlBytesAdded;
-
-    public void Archive(string inputFilePath, string outputFilePath) {
-        IsControlBytesAdded = false;
-
+    public void Archive(string inputFilePath) {
         var dictionary = new Dictionary<string, ushort>();
         ushort iterator = 0;
 
         try {
             using var inputStream = new FileStream(inputFilePath, FileMode.Open, FileAccess.Read);
-            using var outputStream = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write);
+            using var outputStream = new FileStream(GetArchiveFilePath(inputStream), FileMode.Create, FileAccess.Write);
 
             var buffer = new byte[BlockSize];
             int bytesRead;
@@ -30,8 +27,13 @@ public class Archiver {
 
             while ((bytesRead = inputStream.Read(buffer, 0, BlockSize)) > 0) {
                 if (dictionary.Count >= 65535 || bytesRead < BlockSize) {
-                    WriteTailBytes(outputFlow, buffer);
-                    continue;
+                    inputStream.Seek(-bytesRead, SeekOrigin.Current);
+
+                    var tailBuffer = new byte[inputStream.Length - inputStream.Position];
+                    inputStream.Read(tailBuffer, 0, tailBuffer.Length);
+
+                    WriteTailBytes(outputFlow, tailBuffer);
+                    break;
                 }
 
                 var bufferStr = BitConverter.ToString(buffer);
@@ -40,10 +42,10 @@ public class Archiver {
                     fileBytes.AddRange(buffer);
                 }
 
-                outputFlow.AddRange(BitConverter.GetBytes(dictionary[bufferStr]));
+                outputFlow.AddRange(dictionary[bufferStr].ToBytes());
             }
 
-            fileBytes.InsertRange(3, BitConverter.GetBytes((ushort)dictionary.Count));
+            fileBytes.InsertRange(3, ((ushort)dictionary.Count).ToBytes());
             fileBytes.AddRange(outputFlow);
 
             outputStream.Write(fileBytes.ToArray());
@@ -52,24 +54,24 @@ public class Archiver {
         }
     }
 
-    private void WriteTailBytes(List<byte> fileBytes, byte[] bytes) {
-        WriteControlBytes(fileBytes);
-        fileBytes.AddRange(bytes);
-    }
-
-    private void WriteControlBytes(List<byte> fileBytes) {
-        if (IsControlBytesAdded) {
-            return;
+    private static string GetArchiveFilePath(FileStream stream) {
+        var result = Path.Combine("./OutputData", Path.GetFileName(stream.Name) + ".32a");
+        if (!Directory.Exists(result)) {
+            Directory.CreateDirectory("./OutputData");
         }
 
-        var controlBytes = BitConverter.GetBytes(ControlBytes);
-        fileBytes.AddRange(controlBytes);
+        return result;
     }
 
-    public void Unarchive(string inputFilePath, string outputFilePath) {
+    private static void WriteTailBytes(List<byte> fileBytes, byte[] tailBytes) {
+        var controlBytes = ControlBytes.ToBytes();
+        fileBytes.AddRange(controlBytes.Concat(tailBytes));
+    }
+
+    public void Unarchive(string inputFilePath) {
         try {
             using var inputStream = new FileStream(inputFilePath, FileMode.Open, FileAccess.Read);
-            using var outputStream = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write);
+            using var outputStream = new FileStream(GetUnarchiveFilePath(inputStream), FileMode.Create, FileAccess.Write);
 
             CheckFormat(inputStream);
             var dictionary = GenerateDictionary(inputStream);
@@ -80,7 +82,7 @@ public class Archiver {
             var iterator = 0;
 
             while ((bytesRead = inputStream.Read(buffer, 0, 2)) > 0) {
-                var byteValue = BitConverter.ToUInt16(buffer);
+                var byteValue = BinaryPrimitives.ReadUInt16BigEndian(buffer);
                 if (byteValue == ControlBytes) {
                     break;
                 }
@@ -97,6 +99,15 @@ public class Archiver {
         } catch {
             throw;
         }
+    }
+
+    private static string GetUnarchiveFilePath(FileStream stream) {
+        var result = Path.Combine("./DecodedData", Path.GetFileName(stream.Name).Replace(".32a", ""));
+        if (!Directory.Exists(result)) {
+            Directory.CreateDirectory("./DecodedData");
+        }
+
+        return result;
     }
 
     private static void CheckFormat(FileStream stream) {
@@ -130,6 +141,6 @@ public class Archiver {
         var lengthBuffer = new byte[2];
 
         stream.Read(lengthBuffer, 0, 2);
-        return BitConverter.ToUInt16(lengthBuffer);
+        return BinaryPrimitives.ReadUInt16BigEndian(lengthBuffer);
     }
 }

@@ -1,9 +1,10 @@
+using Lab1.DataSourceEncoding.Utils;
+
 namespace Lab1.DataSourceEncoding;
 
 public partial class Program {
     private const string DefaultInputFilePath = "./InputData/file.webp";
-    private const string DefaultOutputFilePath = "./OutputData/archive.32a";
-    private const string DefaultDecodedFilePath = "./DecodedData/file";
+    private const string DefaultOutputFilePath = "./OutputData/file.webp.32a";
 
     private static readonly CommandDefinition[] CommandDefinitions = [
         new("1") {
@@ -26,14 +27,26 @@ public partial class Program {
     }
 
     private static void Archive() {
+        var path = ConsoleUtils.GetValueFromUser<string>("Enter file path to archive: ");
+        if (string.IsNullOrWhiteSpace(path)) {
+            path = DefaultInputFilePath;
+        }
+
         var archiver = new Archiver();
-        archiver.Archive(DefaultInputFilePath, DefaultOutputFilePath);
+        archiver.Archive(path);
+
         Console.WriteLine("Archive completed.");
     }
 
     private static void Unarchive() {
+        var path = ConsoleUtils.GetValueFromUser<string>("Enter file path to unarchive: ");
+        if (string.IsNullOrWhiteSpace(path)) {
+            path = DefaultOutputFilePath;
+        }
+
         var archiver = new Archiver();
-        archiver.Unarchive(DefaultOutputFilePath, DefaultDecodedFilePath);
+        archiver.Unarchive(path);
+
         Console.WriteLine("Unarchive completed.");
     }
 

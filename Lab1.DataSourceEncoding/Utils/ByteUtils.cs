@@ -1,3 +1,5 @@
+using System.Buffers.Binary;
+
 namespace Lab1.DataSourceEncoding.Utils;
 
 public static class ByteUtils {
@@ -10,5 +12,11 @@ public static class ByteUtils {
         }
 
         return array;
+    }
+
+    public static byte[] ToBytes(this ushort value) {
+        var result = new byte[2];
+        BinaryPrimitives.WriteUInt16BigEndian(result, value);
+        return result;
     }
 }

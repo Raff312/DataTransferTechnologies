@@ -1,14 +1,18 @@
 namespace Lab1.DataSourceEncoding;
 
 public partial class Program {
-    private const string DefaultInputFilePath = "./InputData/test.txt";
-    private const string DefaultOutputFilePath = "./OutputData/file.32a";
+    private const string DefaultInputFilePath = "./InputData/file.webp";
+    private const string DefaultOutputFilePath = "./OutputData/archive.32a";
     private const string DefaultDecodedFilePath = "./DecodedData/file";
 
     private static readonly CommandDefinition[] CommandDefinitions = [
         new("1") {
-            Description = "Run",
-            Action = Run
+            Description = "Archive",
+            Action = Archive
+        },
+        new("2") {
+            Description = "Unarchive",
+            Action = Unarchive
         },
         new("0", "exit") {
             Description = "Exit from program",
@@ -21,12 +25,14 @@ public partial class Program {
         return CommandDefinitions.FirstOrDefault(x => x.Codes.Contains(code));
     }
 
-    private static void Run() {
+    private static void Archive() {
         var archiver = new Archiver();
-
         archiver.Archive(DefaultInputFilePath, DefaultOutputFilePath);
         Console.WriteLine("Archive completed.");
+    }
 
+    private static void Unarchive() {
+        var archiver = new Archiver();
         archiver.Unarchive(DefaultOutputFilePath, DefaultDecodedFilePath);
         Console.WriteLine("Unarchive completed.");
     }

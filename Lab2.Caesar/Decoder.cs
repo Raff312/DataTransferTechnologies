@@ -28,7 +28,11 @@ public static class Decoder {
 
         foreach (var c in text) {
             if (alphabet.TryGetValue(char.ToLowerInvariant(c), out var decodedC)) {
-                result.Append(char.ToLowerInvariant(decodedC));
+                if (char.IsLower(c)) {
+                    result.Append(char.ToLowerInvariant(decodedC));
+                } else {
+                    result.Append(char.ToUpperInvariant(decodedC));
+                }
             } else {
                 result.Append(c);
             }

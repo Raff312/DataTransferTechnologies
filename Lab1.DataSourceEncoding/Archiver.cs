@@ -44,7 +44,7 @@ public class Archiver {
             }
 
             fileBytes.InsertRange(3, BitConverter.GetBytes((ushort)dictionary.Count));
-            fileBytes.InsertRange(5 + BlockSize * dictionary.Count, outputFlow);
+            fileBytes.AddRange(outputFlow);
 
             outputStream.Write(fileBytes.ToArray());
         } catch {

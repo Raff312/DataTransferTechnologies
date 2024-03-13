@@ -28,6 +28,8 @@ public partial class Program {
     }
 
     private static void Pack() {
+        EnsureDirectory(PackagesDirectory);
+
         var path = ConsoleUtils.GetValueFromUser<string>("Enter file path to pack: ");
         if (string.IsNullOrWhiteSpace(path)) {
             path = DefaultInputFilePath;
@@ -51,9 +53,21 @@ public partial class Program {
     }
 
     private static void Unpack() {
+        EnsureDirectory(PackagesDirectory);
+        EnsureDirectory(OutputDataDirectory);
+
         PackageManager.Unpack(PackagesDirectory, OutputDataDirectory);
 
         Console.WriteLine("The packages are unpacked.");
+    }
+
+    private static void EnsureDirectory(string path) {
+        if (!Directory.Exists(path)) {
+            var directoryName = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directoryName)) {
+                Directory.CreateDirectory(directoryName);
+            }
+        }
     }
 
     private sealed class CommandDefinition(params string[] codes) {

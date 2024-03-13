@@ -17,29 +17,18 @@ public sealed class IPPackageHeader {
     }
 
     public IPPackageHeader(byte[] bytes) {
-        var bits = new BitArray(bytes);
-
-        var index = 0;
-        UpdatePropertyFrom(bits, Version, ref index);
-        UpdatePropertyFrom(bits, Ihl, ref index);
-        UpdatePropertyFrom(bits, TypeOfService, ref index);
-        UpdatePropertyFrom(bits, TotalLength, ref index);
-        UpdatePropertyFrom(bits, Identification, ref index);
-        UpdatePropertyFrom(bits, Flags, ref index);
-        UpdatePropertyFrom(bits, FragmentOffset, ref index);
-        UpdatePropertyFrom(bits, TimeToLive, ref index);
-        UpdatePropertyFrom(bits, Protocol, ref index);
-        UpdatePropertyFrom(bits, HeaderChecksum, ref index);
-        UpdatePropertyFrom(bits, SourceAddress, ref index);
-        UpdatePropertyFrom(bits, DestinationAddress, ref index);
+        UpdatePropertiesFrom(new BitArray(bytes));
     }
 
-    private static void UpdatePropertyFrom(BitArray bits, BitArray propertyBits, ref int index) {
-        for (var i = 0; i < propertyBits.Length; i++) {
-            propertyBits[i] = bits[index + i];
-        }
+    private void UpdatePropertiesFrom(BitArray bits) {
+        var index = 0;
+        foreach (var property in Properties) {
+            for (var i = 0; i < property.Length; i++) {
+                property[i] = bits[index + i];
+            }
 
-        index += propertyBits.Length;
+            index += property.Length;
+        }
     }
 
     private BitArray Version { get; set; } = new(4);
@@ -50,52 +39,41 @@ public sealed class IPPackageHeader {
     private BitArray Flags { get; set; } = new(3);
     private BitArray FragmentOffset { get; set; } = new(13);
     private BitArray TimeToLive { get; set; } = new(8);
-    private BitArray Protocol { get; set; } = new(8);
+    private BitArray Protocol { get; set; } = new BitArray(new byte[] { ProtocolNumbers.TCP });
     private BitArray HeaderChecksum { get; set; } = new(16);
     private BitArray SourceAddress { get; set; } = new(32);
     private BitArray DestinationAddress { get; set; } = new(32);
 
+    private BitArray[] Properties => [
+        Version,
+        Ihl,
+        TypeOfService,
+        TotalLength,
+        Identification,
+        Flags,
+        FragmentOffset,
+        TimeToLive,
+        Protocol,
+        HeaderChecksum,
+        SourceAddress,
+        DestinationAddress
+    ];
+
+    private int TotalBitsCount => Properties.Sum(x => x.Length);
+
     public byte[] ToBytes() {
-        var totalBitsLength = GetTotalBitsLength();
-        var totalBits = new BitArray(totalBitsLength);
-
-        var index = 0;
-        MergeBitArrays(totalBits, Version, ref index);
-        MergeBitArrays(totalBits, Ihl, ref index);
-        MergeBitArrays(totalBits, TypeOfService, ref index);
-        MergeBitArrays(totalBits, TotalLength, ref index);
-        MergeBitArrays(totalBits, Identification, ref index);
-        MergeBitArrays(totalBits, Flags, ref index);
-        MergeBitArrays(totalBits, FragmentOffset, ref index);
-        MergeBitArrays(totalBits, TimeToLive, ref index);
-        MergeBitArrays(totalBits, Protocol, ref index);
-        MergeBitArrays(totalBits, HeaderChecksum, ref index);
-        MergeBitArrays(totalBits, SourceAddress, ref index);
-        MergeBitArrays(totalBits, DestinationAddress, ref index);
-
+        var totalBits = new BitArray(TotalBitsCount);
+        MergePropertiesBits(totalBits);
         return totalBits.ToBytes();
     }
 
-    private int GetTotalBitsLength() {
-        return
-            Version.Length +
-            Ihl.Length +
-            TypeOfService.Length +
-            TotalLength.Length +
-            Identification.Length +
-            Flags.Length +
-            FragmentOffset.Length +
-            TimeToLive.Length +
-            Protocol.Length +
-            HeaderChecksum.Length +
-            SourceAddress.Length +
-            DestinationAddress.Length;
-    }
-
-    private static void MergeBitArrays(BitArray mergedBits, BitArray bits, ref int index) {
-        foreach (var bit in bits.Cast<bool>()) {
-            mergedBits[index] = bit;
-            index++;
+    private void MergePropertiesBits(BitArray mergedBits) {
+        var index = 0;
+        foreach (var property in Properties) {
+            foreach (var bit in property.Cast<bool>()) {
+                mergedBits[index] = bit;
+                index++;
+            }
         }
     }
 

@@ -17,27 +17,18 @@ public sealed class TCPSegmentHeader {
     }
 
     public TCPSegmentHeader(byte[] bytes) {
-        var bits = new BitArray(bytes);
-
-        var index = 0;
-        UpdatePropertyFrom(bits, SourcePort, ref index);
-        UpdatePropertyFrom(bits, DestinationPort, ref index);
-        UpdatePropertyFrom(bits, SequenceNumber, ref index);
-        UpdatePropertyFrom(bits, AcknowledgmentNumber, ref index);
-        UpdatePropertyFrom(bits, DataOffset, ref index);
-        UpdatePropertyFrom(bits, Reserved, ref index);
-        UpdatePropertyFrom(bits, ControlBits, ref index);
-        UpdatePropertyFrom(bits, Window, ref index);
-        UpdatePropertyFrom(bits, Checksum, ref index);
-        UpdatePropertyFrom(bits, UrgentPointer, ref index);
+        UpdatePropertiesFrom(new BitArray(bytes));
     }
 
-    private static void UpdatePropertyFrom(BitArray bits, BitArray propertyBits, ref int index) {
-        for (var i = 0; i < propertyBits.Length; i++) {
-            propertyBits[i] = bits[index + i];
-        }
+    private void UpdatePropertiesFrom(BitArray bits) {
+        var index = 0;
+        foreach (var property in Properties) {
+            for (var i = 0; i < property.Length; i++) {
+                property[i] = bits[index + i];
+            }
 
-        index += propertyBits.Length;
+            index += property.Length;
+        }
     }
 
     private BitArray SourcePort { get; set; } = new(16);
@@ -51,45 +42,36 @@ public sealed class TCPSegmentHeader {
     private BitArray Checksum { get; set; } = new(16);
     private BitArray UrgentPointer { get; set; } = new(16);
 
+    private BitArray[] Properties => [
+        SourcePort,
+        DestinationPort,
+        SequenceNumber,
+        AcknowledgmentNumber,
+        DataOffset,
+        Reserved,
+        ControlBits,
+        Window,
+        Checksum,
+        UrgentPointer
+    ];
+
+    private int TotalBitsCount => Properties.Sum(x => x.Length);
+
     public uint SequenceNumberValue => SequenceNumber.ToUInt();
 
     public byte[] ToBytes() {
-        var totalBitsLength = GetTotalBitsLength();
-        var totalBits = new BitArray(totalBitsLength);
-
-        var index = 0;
-        MergeBitArrays(totalBits, SourcePort, ref index);
-        MergeBitArrays(totalBits, DestinationPort, ref index);
-        MergeBitArrays(totalBits, SequenceNumber, ref index);
-        MergeBitArrays(totalBits, AcknowledgmentNumber, ref index);
-        MergeBitArrays(totalBits, DataOffset, ref index);
-        MergeBitArrays(totalBits, Reserved, ref index);
-        MergeBitArrays(totalBits, ControlBits, ref index);
-        MergeBitArrays(totalBits, Window, ref index);
-        MergeBitArrays(totalBits, Checksum, ref index);
-        MergeBitArrays(totalBits, UrgentPointer, ref index);
-
+        var totalBits = new BitArray(TotalBitsCount);
+        MergePropertiesBits(totalBits);
         return totalBits.ToBytes();
     }
 
-    private int GetTotalBitsLength() {
-        return
-            SourcePort.Length +
-            DestinationPort.Length +
-            SequenceNumber.Length +
-            AcknowledgmentNumber.Length +
-            DataOffset.Length +
-            Reserved.Length +
-            ControlBits.Length +
-            Window.Length +
-            Checksum.Length +
-            UrgentPointer.Length;
-    }
-
-    private static void MergeBitArrays(BitArray mergedBits, BitArray bits, ref int index) {
-        foreach (var bit in bits.Cast<bool>()) {
-            mergedBits[index] = bit;
-            index++;
+    private void MergePropertiesBits(BitArray mergedBits) {
+        var index = 0;
+        foreach (var property in Properties) {
+            foreach (var bit in property.Cast<bool>()) {
+                mergedBits[index] = bit;
+                index++;
+            }
         }
     }
 

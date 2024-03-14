@@ -106,7 +106,7 @@ public class Archiver {
 
         stream.Read(formatBuffer, 0, BlockSize);
         var format = Encoding.ASCII.GetString(formatBuffer);
-        if (format != "32A") {
+        if (format.ToUpperInvariant() != "32A") {
             throw new FormatException("Incorrect file format");
         }
     }
